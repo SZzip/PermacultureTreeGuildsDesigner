@@ -1,43 +1,57 @@
-# Astro Starter Kit: Minimal
+# Permaculture Guild Designer — PWA
+
+Browser-basierte PWA zur Gestaltung und Verwaltung von Permakultur-Pflanzengilden. Ersetzt das PowerShell-Modul durch eine offline-faehige Web-App.
+
+## Features
+
+- Pflanzendaten verwalten (CRUD) mit lokaler IndexedDB-Speicherung
+- SVG-Pflanzenkarten (Polyculture Card 70x120mm, Stripe Card 290x16mm)
+- PDF-Export (Einzelkarten oder alle auf A4)
+- CSV-Import (kompatibel mit dem bestehenden override.csv-Format)
+- JSON Import/Export
+- Offline-faehig (Service Worker + IndexedDB)
+- Installierbar als PWA
+
+## Entwicklung
 
 ```sh
-npm create astro@latest -- --template minimal
+nvm use           # Node 24
+npm install
+npm run dev       # Dev-Server auf localhost:4321
 ```
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+## Build
 
-## 🚀 Project Structure
-
-Inside of your Astro project, you'll see the following folders and files:
-
-```text
-/
-├── public/
-├── src/
-│   └── pages/
-│       └── index.astro
-└── package.json
+```sh
+npm run build     # Static Build nach ./dist/
+npm run preview   # Lokale Vorschau des Builds
 ```
 
-Astro looks for `.astro` or `.md` files in the `src/pages/` directory. Each page is exposed as a route based on its file name.
+## Deployment (Netlify)
 
-There's nothing special about `src/components/`, but that's where we like to put any Astro/React/Vue/Svelte/Preact components.
+- Build Command: `npm run build`
+- Publish Directory: `dist`
+- Netlify-Config liegt in `netlify.toml`
 
-Any static assets, like images, can be placed in the `public/` directory.
+## Projektstruktur
 
-## 🧞 Commands
-
-All commands are run from the root of the project, from a terminal:
-
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `npm install`             | Installs dependencies                            |
-| `npm run dev`             | Starts local dev server at `localhost:4321`      |
-| `npm run build`           | Build your production site to `./dist/`          |
-| `npm run preview`         | Preview your build locally, before deploying     |
-| `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `npm run astro -- --help` | Get help using the Astro CLI                     |
-
-## 👀 Want to learn more?
-
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+```
+pwa/
+  src/
+    layouts/Layout.astro    # Haupt-Layout mit Navigation
+    pages/
+      index.astro           # Pflanzenliste + Bearbeitungsdialog
+      cards.astro           # Kartenansicht + PDF-Export
+    lib/
+      types.ts              # PlantData Interface
+      db.ts                 # IndexedDB Store
+      card-svg.ts           # SVG-Rendering (Poly + Stripe)
+      pdf-export.ts         # PDF-Generierung (jsPDF + svg2pdf.js)
+      csv-import.ts         # CSV-Import (PowerShell-Format)
+      sample-data.ts        # Beispielpflanzen
+  public/
+    manifest.json           # PWA-Manifest
+    sw.js                   # Service Worker
+    favicon.svg
+  netlify.toml
+```

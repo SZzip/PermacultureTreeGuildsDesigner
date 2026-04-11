@@ -7,6 +7,7 @@ import Layout from '../layouts/Layout.astro';
     <div class="actions">
       <button class="btn btn-primary" id="btn-add">+ Neue Pflanze</button>
       <button class="btn btn-secondary" id="btn-import">Import JSON</button>
+      <button class="btn btn-secondary" id="btn-import-csv">Import CSV</button>
       <button class="btn btn-secondary" id="btn-export">Export JSON</button>
       <button class="btn btn-secondary" id="btn-load-samples">Beispieldaten</button>
     </div>
@@ -144,6 +145,7 @@ import Layout from '../layouts/Layout.astro';
   </dialog>
 
   <input type="file" id="file-import" accept=".json" style="display:none" />
+  <input type="file" id="file-import-csv" accept=".csv,.txt" style="display:none" />
 </Layout>
 
 <style>
@@ -248,11 +250,13 @@ import Layout from '../layouts/Layout.astro';
   import { getAllPlants, savePlant, deletePlant, importPlants } from '../lib/db';
   import { createEmptyPlant, type PlantData } from '../lib/types';
   import { samplePlants } from '../lib/sample-data';
+  import { importFromCSV } from '../lib/csv-import';
 
   const listEl = document.getElementById('plant-list')!;
   const dialog = document.getElementById('plant-dialog') as HTMLDialogElement;
   const form = document.getElementById('plant-form') as HTMLFormElement;
   const fileInput = document.getElementById('file-import') as HTMLInputElement;
+  const csvInput = document.getElementById('file-import-csv') as HTMLInputElement;
 
   const textFields = ['latinName', 'commonName', 'climateZone', 'imageUrl'] as const;
   const numberFields = ['heightM', 'widthM', 'eatableScore', 'medsScore', 'materialScore'] as const;
@@ -401,6 +405,22 @@ import Layout from '../layouts/Layout.astro';
     await importPlants(data);
     renderList();
     fileInput.value = '';
+  });
+
+  document.getElementById('btn-import-csv')!.addEventListener('click', () => csvInput.click());
+
+  csvInput.addEventListener('change', async () => {
+    const file = csvInput.files?.[0];
+    if (!file) return;
+    const text = await file.text();
+    const plants = importFromCSV(text);
+    if (plants.length === 0) {
+      alert('Keine Pflanzen in der CSV gefunden.');
+      return;
+    }
+    await importPlants(plants);
+    renderList();
+    csvInput.value = '';
   });
 
   renderList();
