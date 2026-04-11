@@ -161,24 +161,63 @@ import Layout from '../layouts/Layout.astro';
   .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
   .plant-list {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
     gap: 1rem;
   }
   .plant-item {
     background: #fff;
     border-radius: var(--radius);
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    padding: 1rem;
+    padding: 0.75rem;
     display: flex;
-    justify-content: space-between;
     align-items: flex-start;
     gap: 0.75rem;
   }
+  .card-preview {
+    flex-shrink: 0;
+    width: 80px;
+    border: 1px solid #eee;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .card-preview :global(svg) {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .plant-details {
+    flex: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+  .plant-info { min-width: 0; }
   .plant-info h3 { font-size: 1rem; margin-bottom: 0.15rem; }
   .plant-info .latin { font-style: italic; color: #666; font-size: 0.85rem; }
   .plant-info .meta { font-size: 0.8rem; color: #888; margin-top: 0.3rem; }
   .plant-actions { display: flex; gap: 0.4rem; flex-shrink: 0; }
   .plant-actions button { padding: 0.3rem 0.6rem; font-size: 0.8rem; }
+
+  .warning {
+    font-size: 0.75rem;
+    color: #e65100;
+    background: #fff3e0;
+    padding: 0.2rem 0.4rem;
+    border-radius: 3px;
+    margin-top: 0.3rem;
+  }
+
+  @media (max-width: 600px) {
+    .page-header { flex-direction: column; align-items: stretch; }
+    .actions { flex-wrap: wrap; }
+    .plant-list { grid-template-columns: 1fr; }
+    .plant-item { flex-direction: column; }
+    .card-preview { width: 100%; max-width: 200px; margin: 0 auto; }
+    .plant-details { flex-direction: column; }
+    dialog { width: 98vw; padding: 1rem; }
+  }
   .badge {
     display: inline-block;
     background: var(--green-light);
@@ -251,6 +290,8 @@ import Layout from '../layouts/Layout.astro';
   import { createEmptyPlant, type PlantData } from '../lib/types';
   import { samplePlants } from '../lib/sample-data';
   import { importFromCSV } from '../lib/csv-import';
+  import { renderPolyCard } from '../lib/card-svg';
+  import { validatePlant } from '../lib/validate';
 
   const listEl = document.getElementById('plant-list')!;
   const dialog = document.getElementById('plant-dialog') as HTMLDialogElement;
@@ -322,19 +363,26 @@ import Layout from '../layouts/Layout.astro';
     }
     listEl.innerHTML = plants.map(p => `
       <div class="plant-item" data-id="${p.id}">
-        <div class="plant-info">
-          <h3>${p.commonName || p.latinName}</h3>
-          <div class="latin">${p.latinName}</div>
-          <div class="meta">
-            ${p.heightM != null ? `↕${p.heightM}m` : ''}
-            ${p.widthM != null ? `↔${p.widthM}m` : ''}
-            ${p.climateZone ? `Zone ${p.climateZone}` : ''}
+        <div class="card-preview">${renderPolyCard(p)}</div>
+        <div class="plant-details">
+          <div class="plant-info">
+            <h3>${p.commonName || p.latinName}</h3>
+            <div class="latin">${p.latinName}</div>
+            <div class="meta">
+              ${p.heightM != null ? `↕${p.heightM}m` : ''}
+              ${p.widthM != null ? `↔${p.widthM}m` : ''}
+              ${p.climateZone ? `Zone ${p.climateZone}` : ''}
+            </div>
+            <div class="meta">${renderBadges(p)}</div>
+            ${(() => {
+              const v = validatePlant(p);
+              return v.complete ? '' : `<div class="warning">Unvollständig: ${v.missing.join(', ')}</div>`;
+            })()}
           </div>
-          <div class="meta">${renderBadges(p)}</div>
-        </div>
-        <div class="plant-actions">
-          <button class="btn btn-secondary btn-edit">Bearb.</button>
-          <button class="btn btn-danger btn-del">X</button>
+          <div class="plant-actions">
+            <button class="btn btn-secondary btn-edit">Bearb.</button>
+            <button class="btn btn-danger btn-del">X</button>
+          </div>
         </div>
       </div>
     `).join('');
