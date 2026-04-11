@@ -1,0 +1,407 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+<Layout title="Permaculture Guild Designer — Pflanzen">
+  <div class="page-header">
+    <h1>Pflanzenliste</h1>
+    <div class="actions">
+      <button class="btn btn-primary" id="btn-add">+ Neue Pflanze</button>
+      <button class="btn btn-secondary" id="btn-import">Import JSON</button>
+      <button class="btn btn-secondary" id="btn-export">Export JSON</button>
+      <button class="btn btn-secondary" id="btn-load-samples">Beispieldaten</button>
+    </div>
+  </div>
+
+  <div id="plant-list" class="plant-list"></div>
+
+  <dialog id="plant-dialog">
+    <form id="plant-form" method="dialog">
+      <h2 id="dialog-title">Pflanze bearbeiten</h2>
+      <input type="hidden" id="f-id" />
+
+      <div class="form-grid">
+        <fieldset>
+          <legend>Grunddaten</legend>
+          <label>Lateinischer Name <input type="text" id="f-latinName" required /></label>
+          <label>Deutscher Name <input type="text" id="f-commonName" /></label>
+          <label>Höhe (m) <input type="number" id="f-heightM" step="0.1" min="0" /></label>
+          <label>Breite (m) <input type="number" id="f-widthM" step="0.1" min="0" /></label>
+          <label>Klimazone <input type="text" id="f-climateZone" placeholder="z.B. 5-9" /></label>
+          <label>Bild-URL <input type="url" id="f-imageUrl" /></label>
+        </fieldset>
+
+        <fieldset>
+          <legend>Nutzung</legend>
+          <div class="checkbox-grid">
+            <label><input type="checkbox" id="f-eatable" /> Essbar</label>
+            <label>Score <input type="number" id="f-eatableScore" min="0" max="5" class="score-input" /></label>
+            <label><input type="checkbox" id="f-culinaric" /> Kulinarisch</label>
+            <label><input type="checkbox" id="f-meds" /> Medizinisch</label>
+            <label>Score <input type="number" id="f-medsScore" min="0" max="5" class="score-input" /></label>
+            <label><input type="checkbox" id="f-material" /> Material</label>
+            <label>Score <input type="number" id="f-materialScore" min="0" max="5" class="score-input" /></label>
+            <label><input type="checkbox" id="f-fodder" /> Futter</label>
+            <label><input type="checkbox" id="f-fuel" /> Brennstoff</label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Ökosystem</legend>
+          <div class="checkbox-grid">
+            <label><input type="checkbox" id="f-nitrogenFix" /> Stickstoff</label>
+            <label><input type="checkbox" id="f-mineralFix" /> Mineralien</label>
+            <label><input type="checkbox" id="f-groundCover" /> Bodendecker</label>
+            <label><input type="checkbox" id="f-insects" /> Insekten</label>
+            <label><input type="checkbox" id="f-pest" /> Schädling</label>
+            <label><input type="checkbox" id="f-animalProtection" /> Tierschutz</label>
+            <label><input type="checkbox" id="f-windBreaking" /> Windschutz</label>
+            <label><input type="checkbox" id="f-windBreakingOnSea" /> Wind (See)</label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Sonne</legend>
+          <div class="checkbox-grid">
+            <label><input type="checkbox" id="f-sunFull" /> Volle Sonne</label>
+            <label><input type="checkbox" id="f-sunMid" /> Halbschatten</label>
+            <label><input type="checkbox" id="f-sunShadow" /> Schatten</label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Wasser</legend>
+          <div class="checkbox-grid">
+            <label><input type="checkbox" id="f-waterDry" /> Trocken</label>
+            <label><input type="checkbox" id="f-waterMid" /> Mittel</label>
+            <label><input type="checkbox" id="f-waterWet" /> Nass</label>
+            <label><input type="checkbox" id="f-waterPlant" /> Wasserpflanze</label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Boden pH</legend>
+          <div class="checkbox-grid">
+            <label><input type="checkbox" id="f-phVeryAcid" /> Sehr sauer</label>
+            <label><input type="checkbox" id="f-phAcid" /> Sauer</label>
+            <label><input type="checkbox" id="f-phNeutral" /> Neutral</label>
+            <label><input type="checkbox" id="f-phAlkaline" /> Alkalisch</label>
+            <label><input type="checkbox" id="f-phVeryAlkaline" /> Sehr alk.</label>
+            <label><input type="checkbox" id="f-phSaline" /> Salin</label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Wachstum</legend>
+          <div class="checkbox-grid">
+            <label><input type="checkbox" id="f-growSpeedLow" /> Langsam</label>
+            <label><input type="checkbox" id="f-growSpeedMid" /> Mittel</label>
+            <label><input type="checkbox" id="f-growSpeedHigh" /> Schnell</label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Fruchtmonate</legend>
+          <div class="month-grid">
+            <label><input type="checkbox" id="f-fruit-0" /> Jan</label>
+            <label><input type="checkbox" id="f-fruit-1" /> Feb</label>
+            <label><input type="checkbox" id="f-fruit-2" /> Mär</label>
+            <label><input type="checkbox" id="f-fruit-3" /> Apr</label>
+            <label><input type="checkbox" id="f-fruit-4" /> Mai</label>
+            <label><input type="checkbox" id="f-fruit-5" /> Jun</label>
+            <label><input type="checkbox" id="f-fruit-6" /> Jul</label>
+            <label><input type="checkbox" id="f-fruit-7" /> Aug</label>
+            <label><input type="checkbox" id="f-fruit-8" /> Sep</label>
+            <label><input type="checkbox" id="f-fruit-9" /> Okt</label>
+            <label><input type="checkbox" id="f-fruit-10" /> Nov</label>
+            <label><input type="checkbox" id="f-fruit-11" /> Dez</label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Blütemonate</legend>
+          <div class="month-grid">
+            <label><input type="checkbox" id="f-flower-0" /> Jan</label>
+            <label><input type="checkbox" id="f-flower-1" /> Feb</label>
+            <label><input type="checkbox" id="f-flower-2" /> Mär</label>
+            <label><input type="checkbox" id="f-flower-3" /> Apr</label>
+            <label><input type="checkbox" id="f-flower-4" /> Mai</label>
+            <label><input type="checkbox" id="f-flower-5" /> Jun</label>
+            <label><input type="checkbox" id="f-flower-6" /> Jul</label>
+            <label><input type="checkbox" id="f-flower-7" /> Aug</label>
+            <label><input type="checkbox" id="f-flower-8" /> Sep</label>
+            <label><input type="checkbox" id="f-flower-9" /> Okt</label>
+            <label><input type="checkbox" id="f-flower-10" /> Nov</label>
+            <label><input type="checkbox" id="f-flower-11" /> Dez</label>
+          </div>
+        </fieldset>
+      </div>
+
+      <div class="dialog-actions">
+        <button type="submit" class="btn btn-primary">Speichern</button>
+        <button type="button" class="btn btn-secondary" id="btn-cancel">Abbrechen</button>
+      </div>
+    </form>
+  </dialog>
+
+  <input type="file" id="file-import" accept=".json" style="display:none" />
+</Layout>
+
+<style>
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .page-header h1 { font-size: 1.5rem; }
+  .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .plant-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+  }
+  .plant-item {
+    background: #fff;
+    border-radius: var(--radius);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    padding: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+  .plant-info h3 { font-size: 1rem; margin-bottom: 0.15rem; }
+  .plant-info .latin { font-style: italic; color: #666; font-size: 0.85rem; }
+  .plant-info .meta { font-size: 0.8rem; color: #888; margin-top: 0.3rem; }
+  .plant-actions { display: flex; gap: 0.4rem; flex-shrink: 0; }
+  .plant-actions button { padding: 0.3rem 0.6rem; font-size: 0.8rem; }
+  .badge {
+    display: inline-block;
+    background: var(--green-light);
+    color: var(--green-dark);
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    margin-top: 0.2rem;
+  }
+
+  dialog {
+    border: none;
+    border-radius: var(--radius);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+    max-width: 700px;
+    width: 90vw;
+    max-height: 85vh;
+    overflow-y: auto;
+    padding: 1.5rem;
+  }
+  dialog::backdrop { background: rgba(0,0,0,0.4); }
+  dialog h2 { margin-bottom: 1rem; }
+  .form-grid { display: grid; gap: 1rem; }
+  fieldset {
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 0.75rem;
+  }
+  fieldset legend {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--green-dark);
+    padding: 0 0.4rem;
+  }
+  fieldset label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.85rem;
+    margin: 0.2rem 0;
+  }
+  fieldset > label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    margin-bottom: 0.5rem;
+  }
+  fieldset > label input[type="text"],
+  fieldset > label input[type="number"],
+  fieldset > label input[type="url"] {
+    width: 100%;
+  }
+  .checkbox-grid, .month-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1rem;
+  }
+  .month-grid { gap: 0.3rem 0.6rem; }
+  .score-input { width: 50px; }
+  .dialog-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1.25rem;
+    justify-content: flex-end;
+  }
+</style>
+
+<script>
+  import { getAllPlants, savePlant, deletePlant, importPlants } from '../lib/db';
+  import { createEmptyPlant, type PlantData } from '../lib/types';
+  import { samplePlants } from '../lib/sample-data';
+
+  const listEl = document.getElementById('plant-list')!;
+  const dialog = document.getElementById('plant-dialog') as HTMLDialogElement;
+  const form = document.getElementById('plant-form') as HTMLFormElement;
+  const fileInput = document.getElementById('file-import') as HTMLInputElement;
+
+  const textFields = ['latinName', 'commonName', 'climateZone', 'imageUrl'] as const;
+  const numberFields = ['heightM', 'widthM', 'eatableScore', 'medsScore', 'materialScore'] as const;
+  const boolFields = [
+    'eatable', 'culinaric', 'meds', 'material', 'fodder', 'fuel',
+    'nitrogenFix', 'mineralFix', 'groundCover', 'insects', 'pest',
+    'animalProtection', 'windBreaking', 'windBreakingOnSea',
+    'sunFull', 'sunMid', 'sunShadow',
+    'waterDry', 'waterMid', 'waterWet', 'waterPlant',
+    'phVeryAcid', 'phAcid', 'phNeutral', 'phAlkaline', 'phVeryAlkaline', 'phSaline',
+    'growSpeedLow', 'growSpeedMid', 'growSpeedHigh',
+  ] as const;
+
+  function getInput(id: string): HTMLInputElement {
+    return document.getElementById(`f-${id}`) as HTMLInputElement;
+  }
+
+  function fillForm(plant: PlantData) {
+    getInput('id').value = plant.id;
+    for (const f of textFields) getInput(f).value = (plant[f] as string) || '';
+    for (const f of numberFields) {
+      const v = plant[f] as number | null;
+      getInput(f).value = v != null ? String(v) : '';
+    }
+    for (const f of boolFields) getInput(f).checked = plant[f] as boolean;
+    for (let i = 0; i < 12; i++) {
+      getInput(`fruit-${i}`).checked = plant.fruitMonths[i];
+      getInput(`flower-${i}`).checked = plant.flowerMonths[i];
+    }
+  }
+
+  function readForm(): PlantData {
+    const plant = createEmptyPlant();
+    plant.id = getInput('id').value || plant.id;
+    for (const f of textFields) (plant as any)[f] = getInput(f).value;
+    for (const f of numberFields) {
+      const v = getInput(f).value;
+      (plant as any)[f] = v ? parseFloat(v) : null;
+    }
+    for (const f of boolFields) (plant as any)[f] = getInput(f).checked;
+    for (let i = 0; i < 12; i++) {
+      plant.fruitMonths[i] = getInput(`fruit-${i}`).checked;
+      plant.flowerMonths[i] = getInput(`flower-${i}`).checked;
+    }
+    return plant;
+  }
+
+  function renderBadges(plant: PlantData): string {
+    const badges: string[] = [];
+    if (plant.eatable) badges.push('Essbar');
+    if (plant.meds) badges.push('Medizin');
+    if (plant.nitrogenFix) badges.push('N-Fix');
+    if (plant.groundCover) badges.push('Bodendecker');
+    if (plant.insects) badges.push('Insekten');
+    return badges.map(b => `<span class="badge">${b}</span>`).join(' ');
+  }
+
+  async function renderList() {
+    const plants = await getAllPlants();
+    if (plants.length === 0) {
+      listEl.innerHTML = '<p style="color:#888;text-align:center;padding:3rem">Keine Pflanzen vorhanden. Erstelle eine neue oder lade Beispieldaten.</p>';
+      return;
+    }
+    listEl.innerHTML = plants.map(p => `
+      <div class="plant-item" data-id="${p.id}">
+        <div class="plant-info">
+          <h3>${p.commonName || p.latinName}</h3>
+          <div class="latin">${p.latinName}</div>
+          <div class="meta">
+            ${p.heightM != null ? `↕${p.heightM}m` : ''}
+            ${p.widthM != null ? `↔${p.widthM}m` : ''}
+            ${p.climateZone ? `Zone ${p.climateZone}` : ''}
+          </div>
+          <div class="meta">${renderBadges(p)}</div>
+        </div>
+        <div class="plant-actions">
+          <button class="btn btn-secondary btn-edit">Bearb.</button>
+          <button class="btn btn-danger btn-del">X</button>
+        </div>
+      </div>
+    `).join('');
+
+    listEl.querySelectorAll('.btn-edit').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = (btn.closest('.plant-item') as HTMLElement).dataset.id!;
+        const plants = await getAllPlants();
+        const plant = plants.find(p => p.id === id);
+        if (plant) {
+          (document.getElementById('dialog-title') as HTMLElement).textContent = 'Pflanze bearbeiten';
+          fillForm(plant);
+          dialog.showModal();
+        }
+      });
+    });
+
+    listEl.querySelectorAll('.btn-del').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = (btn.closest('.plant-item') as HTMLElement).dataset.id!;
+        if (confirm('Pflanze löschen?')) {
+          await deletePlant(id);
+          renderList();
+        }
+      });
+    });
+  }
+
+  document.getElementById('btn-add')!.addEventListener('click', () => {
+    (document.getElementById('dialog-title') as HTMLElement).textContent = 'Neue Pflanze';
+    fillForm(createEmptyPlant());
+    dialog.showModal();
+  });
+
+  document.getElementById('btn-cancel')!.addEventListener('click', () => dialog.close());
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const plant = readForm();
+    await savePlant(plant);
+    dialog.close();
+    renderList();
+  });
+
+  document.getElementById('btn-load-samples')!.addEventListener('click', async () => {
+    await importPlants(samplePlants);
+    renderList();
+  });
+
+  document.getElementById('btn-export')!.addEventListener('click', async () => {
+    const plants = await getAllPlants();
+    const blob = new Blob([JSON.stringify(plants, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'plants.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  document.getElementById('btn-import')!.addEventListener('click', () => fileInput.click());
+
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files?.[0];
+    if (!file) return;
+    const text = await file.text();
+    const data = JSON.parse(text) as PlantData[];
+    await importPlants(data);
+    renderList();
+    fileInput.value = '';
+  });
+
+  renderList();
+</script>

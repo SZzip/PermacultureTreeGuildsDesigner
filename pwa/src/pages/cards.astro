@@ -1,0 +1,126 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+<Layout title="Permaculture Guild Designer — Karten">
+  <div class="page-header">
+    <h1>Karten</h1>
+    <div class="actions">
+      <button class="btn btn-primary" id="btn-pdf-all">PDF exportieren (alle)</button>
+      <select id="view-mode" class="view-select">
+        <option value="poly">Pflanzenkarten</option>
+        <option value="stripe">Streifenkarten</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="no-plants" style="display:none">
+    <p style="color:#888;text-align:center;padding:3rem">Keine Pflanzen vorhanden. <a href="/">Pflanzen anlegen</a></p>
+  </div>
+
+  <div id="cards-container" class="cards-grid"></div>
+</Layout>
+
+<style>
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .page-header h1 { font-size: 1.5rem; }
+  .actions { display: flex; gap: 0.5rem; align-items: center; }
+  .view-select {
+    padding: 0.45rem 0.8rem;
+    border: 1px solid #ccc;
+    border-radius: var(--radius);
+    font-size: 0.9rem;
+  }
+  .cards-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    justify-content: center;
+  }
+  .cards-grid.stripe-view {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .card-wrapper {
+    background: #fff;
+    border-radius: var(--radius);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .card-wrapper :global(svg) {
+    max-width: 100%;
+    height: auto;
+  }
+  .card-actions {
+    display: flex;
+    gap: 0.4rem;
+  }
+  .card-actions button { font-size: 0.8rem; padding: 0.25rem 0.6rem; }
+</style>
+
+<script>
+  import { getAllPlants } from '../lib/db';
+  import { renderPolyCard, renderStripeCard } from '../lib/card-svg';
+  import type { PlantData } from '../lib/types';
+
+  const container = document.getElementById('cards-container')!;
+  const noPlants = document.getElementById('no-plants')!;
+  const viewMode = document.getElementById('view-mode') as HTMLSelectElement;
+
+  let plants: PlantData[] = [];
+
+  async function init() {
+    plants = await getAllPlants();
+    if (plants.length === 0) {
+      noPlants.style.display = 'block';
+      container.style.display = 'none';
+      return;
+    }
+    render();
+  }
+
+  function render() {
+    const mode = viewMode.value;
+    container.className = mode === 'stripe' ? 'cards-grid stripe-view' : 'cards-grid';
+
+    container.innerHTML = plants.map((p, i) => {
+      const svg = mode === 'stripe' ? renderStripeCard(p) : renderPolyCard(p);
+      return `
+        <div class="card-wrapper" data-index="${i}">
+          ${svg}
+          <div class="card-actions">
+            <button class="btn btn-secondary btn-pdf-single">PDF</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    container.querySelectorAll('.btn-pdf-single').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const idx = parseInt((btn.closest('.card-wrapper') as HTMLElement).dataset.index!);
+        const { exportSingleCardPDF } = await import('../lib/pdf-export');
+        await exportSingleCardPDF(plants[idx]);
+      });
+    });
+  }
+
+  viewMode.addEventListener('change', render);
+
+  document.getElementById('btn-pdf-all')!.addEventListener('click', async () => {
+    if (plants.length === 0) return;
+    const { exportCardsPDF } = await import('../lib/pdf-export');
+    await exportCardsPDF(plants);
+  });
+
+  init();
+</script>
