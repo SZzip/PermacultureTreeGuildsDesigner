@@ -13,6 +13,15 @@ import Layout from '../layouts/Layout.astro';
     </div>
   </div>
 
+  <div class="search-bar card">
+    <label for="plant-search">Pflanze suchen (Wikidata)</label>
+    <div class="search-input-row">
+      <input type="text" id="plant-search" placeholder="z.B. Acer, Beinwell, Symphytum..." autocomplete="off" />
+      <button class="btn btn-primary" id="btn-search">Suchen</button>
+    </div>
+    <div id="search-results" class="search-results"></div>
+  </div>
+
   <div id="plant-list" class="plant-list"></div>
 
   <dialog id="plant-dialog">
@@ -200,6 +209,58 @@ import Layout from '../layouts/Layout.astro';
   .plant-actions { display: flex; gap: 0.4rem; flex-shrink: 0; }
   .plant-actions button { padding: 0.3rem 0.6rem; font-size: 0.8rem; }
 
+  .search-bar {
+    margin-bottom: 1.5rem;
+  }
+  .search-bar label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 0.4rem;
+    font-size: 0.95rem;
+  }
+  .search-input-row {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .search-input-row input {
+    flex: 1;
+    font-size: 1rem;
+    padding: 0.5rem 0.75rem;
+  }
+  .search-results {
+    margin-top: 0.75rem;
+  }
+  .search-result-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0.6rem;
+    border-bottom: 1px solid #eee;
+    gap: 0.5rem;
+  }
+  .search-result-item:last-child { border-bottom: none; }
+  .search-result-info {
+    min-width: 0;
+  }
+  .search-result-info .name {
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+  .search-result-info .latin {
+    font-style: italic;
+    color: #666;
+    font-size: 0.8rem;
+  }
+  .search-result-info .desc {
+    font-size: 0.75rem;
+    color: #888;
+  }
+  .search-loading {
+    color: #888;
+    font-size: 0.85rem;
+    padding: 0.5rem;
+  }
+
   .warning {
     font-size: 0.75rem;
     color: #e65100;
@@ -292,6 +353,7 @@ import Layout from '../layouts/Layout.astro';
   import { importFromCSV } from '../lib/csv-import';
   import { renderPolyCard } from '../lib/card-svg';
   import { validatePlant } from '../lib/validate';
+  import { searchPlants, importPlantFromSearch, type SearchResult } from '../lib/plant-search';
 
   const listEl = document.getElementById('plant-list')!;
   const dialog = document.getElementById('plant-dialog') as HTMLDialogElement;
@@ -453,6 +515,63 @@ import Layout from '../layouts/Layout.astro';
     await importPlants(data);
     renderList();
     fileInput.value = '';
+  });
+
+  // --- Plant Search ---
+  const searchInput = document.getElementById('plant-search') as HTMLInputElement;
+  const searchResults = document.getElementById('search-results')!;
+  let searchTimeout: ReturnType<typeof setTimeout>;
+
+  async function doSearch() {
+    const query = searchInput.value.trim();
+    if (query.length < 2) {
+      searchResults.innerHTML = '';
+      return;
+    }
+    searchResults.innerHTML = '<div class="search-loading">Suche...</div>';
+    try {
+      const results = await searchPlants(query);
+      if (results.length === 0) {
+        searchResults.innerHTML = '<div class="search-loading">Keine Ergebnisse gefunden.</div>';
+        return;
+      }
+      searchResults.innerHTML = results.map((r, i) => `
+        <div class="search-result-item" data-index="${i}">
+          <div class="search-result-info">
+            <div class="name">${r.commonName || r.latinName}</div>
+            ${r.latinName ? `<div class="latin">${r.latinName}</div>` : ''}
+            ${r.description ? `<div class="desc">${r.description}</div>` : ''}
+          </div>
+          <button class="btn btn-primary btn-add-result">+ Hinzuf.</button>
+        </div>
+      `).join('');
+
+      searchResults.querySelectorAll('.btn-add-result').forEach((btn, idx) => {
+        btn.addEventListener('click', async () => {
+          (btn as HTMLButtonElement).disabled = true;
+          (btn as HTMLButtonElement).textContent = '...';
+          try {
+            const plant = await importPlantFromSearch(results[idx]);
+            await savePlant(plant);
+            renderList();
+            (btn as HTMLButtonElement).textContent = '✓';
+          } catch {
+            (btn as HTMLButtonElement).textContent = 'Fehler';
+          }
+        });
+      });
+    } catch (err) {
+      searchResults.innerHTML = `<div class="search-loading">Fehler bei der Suche: ${err}</div>`;
+    }
+  }
+
+  document.getElementById('btn-search')!.addEventListener('click', doSearch);
+  searchInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); doSearch(); }
+  });
+  searchInput.addEventListener('input', () => {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(doSearch, 500);
   });
 
   document.getElementById('btn-import-csv')!.addEventListener('click', () => csvInput.click());
