@@ -183,7 +183,8 @@ import Layout from '../layouts/Layout.astro';
   import { samplePlants } from '../lib/sample-data';
   import { importFromCSV } from '../lib/csv-import';
   import { validatePlant } from '../lib/validate';
-  import { searchPlants, importPlantFromSearch } from '../lib/plant-search';
+  import { searchPlants, importPlantFromSearch, fetchProxyData, fetchPlantDetails } from '../lib/plant-search';
+  import { isSourceEnabled } from '../lib/settings';
 
   const listEl = document.getElementById('plant-list')!;
   const dialog = document.getElementById('plant-dialog') as HTMLDialogElement;
@@ -251,6 +252,7 @@ import Layout from '../layouts/Layout.astro';
             <p class="truncate text-xs italic text-stone-500">${p.latinName}</p>
           </div>
           <div class="flex shrink-0 gap-1 opacity-0 transition group-hover:opacity-100">
+            <button class="btn-enrich rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100" title="Daten von PFAF/NaturaDB ergänzen">Ergänzen</button>
             <button class="btn-edit rounded-md bg-stone-100 px-2 py-1 text-xs font-medium text-stone-600 hover:bg-stone-200">Bearb.</button>
             <button class="btn-del rounded-md bg-red-50 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-100">X</button>
           </div>
@@ -265,6 +267,64 @@ import Layout from '../layouts/Layout.astro';
       </div>`;
     }).join('');
 
+    listEl.querySelectorAll('.btn-enrich').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const card = btn.closest('[data-id]') as HTMLElement;
+        const id = card.dataset.id!;
+        const plant = (await getAllPlants()).find(p => p.id === id);
+        if (!plant || !plant.latinName) { alert('Lateinischer Name fehlt.'); return; }
+        const b = btn as HTMLButtonElement;
+        b.disabled = true; b.textContent = 'Lade...';
+        try {
+          let enriched = 0;
+          // Proxy: PFAF + NaturaDB
+          if (isSourceEnabled('pfaf') || isSourceEnabled('naturadb')) {
+            const proxyData = await fetchProxyData(plant.latinName);
+            for (const [key, value] of Object.entries(proxyData)) {
+              const current = (plant as any)[key];
+              const isEmpty = current === null || current === undefined || current === '' || current === false ||
+                (Array.isArray(current) && current.every((v: boolean) => !v));
+              if (isEmpty && value !== null && value !== undefined && value !== '' && value !== false) {
+                (plant as any)[key] = value;
+                enriched++;
+              }
+            }
+          }
+          // Wikidata (image, dimensions)
+          if (isSourceEnabled('wikidata') && !plant.imageUrl) {
+            // Quick search to find the Wikidata ID
+            const searchUrl = new URL('https://www.wikidata.org/w/api.php');
+            searchUrl.searchParams.set('action', 'wbsearchentities');
+            searchUrl.searchParams.set('search', plant.latinName);
+            searchUrl.searchParams.set('language', 'en');
+            searchUrl.searchParams.set('type', 'item');
+            searchUrl.searchParams.set('limit', '1');
+            searchUrl.searchParams.set('format', 'json');
+            searchUrl.searchParams.set('origin', '*');
+            const sr = await fetch(searchUrl.toString());
+            if (sr.ok) {
+              const sd = await sr.json();
+              const wdId = sd.search?.[0]?.id;
+              if (wdId) {
+                const details = await fetchPlantDetails(wdId);
+                for (const [key, value] of Object.entries(details)) {
+                  const current = (plant as any)[key];
+                  const isEmpty = current === null || current === undefined || current === '' || current === false;
+                  if (isEmpty && value) { (plant as any)[key] = value; enriched++; }
+                }
+              }
+            }
+          }
+          await savePlant(plant);
+          b.textContent = enriched > 0 ? `+${enriched} Felder` : 'Nichts Neues';
+          b.classList.replace('bg-blue-50', enriched > 0 ? 'bg-green-50' : 'bg-stone-50');
+          b.classList.replace('text-blue-700', enriched > 0 ? 'text-green-700' : 'text-stone-500');
+          setTimeout(() => renderList(), 1500);
+        } catch (e) {
+          b.textContent = 'Fehler'; b.classList.replace('bg-blue-50','bg-red-50'); b.classList.replace('text-blue-700','text-red-600');
+        }
+      });
+    });
     listEl.querySelectorAll('.btn-edit').forEach(btn => {
       btn.addEventListener('click', async () => {
         const id = (btn.closest('[data-id]') as HTMLElement).dataset.id!;
@@ -320,15 +380,65 @@ import Layout from '../layouts/Layout.astro';
             <p class="truncate text-sm font-medium text-stone-800">${r.commonName || r.latinName}</p>
             ${r.latinName ? `<p class="truncate text-xs italic text-stone-500">${r.latinName}</p>` : ''}
             ${r.description ? `<p class="truncate text-xs text-stone-400">${r.description}</p>` : ''}
+            <p class="import-status mt-0.5 text-xs text-green-600"></p>
           </div>
           <button class="btn-add-result shrink-0 rounded-lg bg-green-700 px-3 py-1.5 text-xs font-medium text-white shadow transition hover:bg-green-800 active:scale-95">+ Hinzuf.</button>
         </div>
       `).join('');
       searchResults.querySelectorAll('.btn-add-result').forEach((btn, idx) => {
         btn.addEventListener('click', async () => {
-          const b = btn as HTMLButtonElement; b.disabled = true; b.textContent = '...';
-          try { await savePlant(await importPlantFromSearch(results[idx])); renderList(); b.textContent = '✓'; b.classList.replace('bg-green-700','bg-green-500'); }
-          catch { b.textContent = 'Fehler'; b.classList.replace('bg-green-700','bg-red-500'); }
+          const b = btn as HTMLButtonElement;
+          const statusEl = b.closest('[data-idx]')?.querySelector('.import-status') as HTMLElement | null;
+          b.disabled = true;
+          const sources: string[] = [];
+
+          try {
+            const r = results[idx];
+            const plant = createEmptyPlant();
+            plant.latinName = r.latinName;
+            plant.commonName = r.commonName;
+
+            // 1. Wikidata
+            if (r.wikidataId && isSourceEnabled('wikidata')) {
+              b.textContent = 'Wikidata...';
+              const details = await fetchPlantDetails(r.wikidataId);
+              if (Object.keys(details).length > 0) {
+                Object.assign(plant, details);
+                sources.push('Wikidata');
+              }
+            }
+
+            // 2. PFAF + NaturaDB via proxy
+            if (plant.latinName && (isSourceEnabled('pfaf') || isSourceEnabled('naturadb'))) {
+              b.textContent = 'PFAF/NaturaDB...';
+              const proxyData = await fetchProxyData(plant.latinName);
+              let proxyHits = 0;
+              for (const [key, value] of Object.entries(proxyData)) {
+                const current = (plant as any)[key];
+                const isEmpty = current === null || current === undefined || current === '' || current === false ||
+                  (Array.isArray(current) && current.every((v: boolean) => !v));
+                if (isEmpty && value !== null && value !== undefined && value !== '' && value !== false) {
+                  (plant as any)[key] = value;
+                  proxyHits++;
+                }
+              }
+              if (proxyHits > 0) {
+                if (isSourceEnabled('pfaf')) sources.push('PFAF');
+                if (isSourceEnabled('naturadb')) sources.push('NaturaDB');
+              }
+            }
+
+            plant.id = crypto.randomUUID();
+            await savePlant(plant);
+            renderList();
+
+            b.textContent = '✓';
+            b.classList.replace('bg-green-700','bg-green-500');
+            if (statusEl) statusEl.textContent = sources.length > 0 ? `Quellen: ${sources.join(', ')}` : '';
+          } catch {
+            b.textContent = 'Fehler';
+            b.classList.replace('bg-green-700','bg-red-500');
+          }
         });
       });
     } catch (err) { searchResults.innerHTML = `<p class="py-2 text-sm text-red-500">Fehler: ${err}</p>`; }

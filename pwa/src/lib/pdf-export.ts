@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf';
 import 'svg2pdf.js';
+import { renderTemplatePolyCard, renderTemplateStripeCard } from './svg-template';
 import { renderPolyCard, renderStripeCard } from './card-svg';
 import type { PlantData } from './types';
 
@@ -9,10 +10,27 @@ function svgStringToElement(svgString: string): SVGElement {
   return doc.documentElement as unknown as SVGElement;
 }
 
+/** Render a poly card SVG, preferring the original template with fallback */
+async function getPolyCardSvg(plant: PlantData): Promise<string> {
+  try {
+    return await renderTemplatePolyCard(plant);
+  } catch {
+    return renderPolyCard(plant);
+  }
+}
+
+/** Render a stripe card SVG, preferring the original template with fallback */
+async function getStripeCardSvg(plant: PlantData): Promise<string> {
+  try {
+    return await renderTemplateStripeCard(plant);
+  } catch {
+    return renderStripeCard(plant);
+  }
+}
+
 export async function exportCardsPDF(plants: PlantData[]): Promise<void> {
   if (plants.length === 0) return;
 
-  // A4 landscape for stripe cards, portrait for poly cards
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
   const pageW = 210;
@@ -33,7 +51,7 @@ export async function exportCardsPDF(plants: PlantData[]): Promise<void> {
     const x = margin + col * (cardW + margin);
     const y = margin + row * (cardH + margin);
 
-    const svgStr = renderPolyCard(plants[i]);
+    const svgStr = await getPolyCardSvg(plants[i]);
     const svgEl = svgStringToElement(svgStr);
 
     await doc.svg(svgEl, { x, y, width: cardW, height: cardH });
@@ -64,7 +82,7 @@ export async function exportCardsPDF(plants: PlantData[]): Promise<void> {
         doc.addPage('a4', 'landscape');
         sy = sMargin;
       }
-      const svgStr = renderStripeCard(plants[i]);
+      const svgStr = await getStripeCardSvg(plants[i]);
       const svgEl = svgStringToElement(svgStr);
       await doc.svg(svgEl, { x: sMargin, y: sy, width: stripeW, height: stripeH });
       sy += stripeH + 2;
@@ -76,7 +94,7 @@ export async function exportCardsPDF(plants: PlantData[]): Promise<void> {
 
 export async function exportSingleCardPDF(plant: PlantData): Promise<void> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [70, 120] });
-  const svgStr = renderPolyCard(plant);
+  const svgStr = await getPolyCardSvg(plant);
   const svgEl = svgStringToElement(svgStr);
   await doc.svg(svgEl, { x: 0, y: 0, width: 70, height: 120 });
   doc.save(`${plant.latinName || 'plant'}-card.pdf`);

@@ -12,66 +12,95 @@ export interface SearchResult {
 let activeController: AbortController | null = null;
 
 /**
- * Search for plants via Wikidata MediaWiki API (CirrusSearch).
- * Uses haswbstatement:P225 to filter for taxa (items with a taxon name).
+ * Search for plants. Strategy depends on enabled sources:
+ * - Wikidata enabled: autocomplete search via MediaWiki CirrusSearch
+ * - Only PFAF/NaturaDB: direct lookup by Latin name via proxy
+ * - All enabled: Wikidata autocomplete + proxy enrichment on import
  */
 export async function searchPlants(query: string): Promise<SearchResult[]> {
   if (!query || query.length < 2) return [];
-  if (!isSourceEnabled('wikidata')) return [];
 
   // Cancel any in-flight request
   if (activeController) activeController.abort();
   activeController = new AbortController();
   const signal = activeController.signal;
 
-  // Step 1: Fast search via MediaWiki CirrusSearch, filtered to items with taxon name (P225)
-  const searchUrl = new URL('https://www.wikidata.org/w/api.php');
-  searchUrl.searchParams.set('action', 'query');
-  searchUrl.searchParams.set('list', 'search');
-  searchUrl.searchParams.set('srsearch', `haswbstatement:P225 ${query}`);
-  searchUrl.searchParams.set('srnamespace', '0');
-  searchUrl.searchParams.set('srlimit', '15');
-  searchUrl.searchParams.set('format', 'json');
-  searchUrl.searchParams.set('origin', '*');
-
-  const res = await fetch(searchUrl.toString(), { signal });
-  if (!res.ok) throw new Error(`Wikidata search failed: ${res.status}`);
-  const data = await res.json();
-
-  const items = data.query?.search;
-  if (!items || items.length === 0) return [];
-
-  // Step 2: Fetch labels + taxon names for the found items
-  const ids = items.map((s: any) => s.title).join('|');
-  const detailUrl = new URL('https://www.wikidata.org/w/api.php');
-  detailUrl.searchParams.set('action', 'wbgetentities');
-  detailUrl.searchParams.set('ids', ids);
-  detailUrl.searchParams.set('props', 'labels|descriptions|claims');
-  detailUrl.searchParams.set('languages', 'de|en|la');
-  detailUrl.searchParams.set('format', 'json');
-  detailUrl.searchParams.set('origin', '*');
-
-  const detailRes = await fetch(detailUrl.toString(), { signal });
-  if (!detailRes.ok) throw new Error(`Wikidata detail fetch failed: ${detailRes.status}`);
-  const detailData = await detailRes.json();
+  const wikidataEnabled = isSourceEnabled('wikidata');
+  const proxyEnabled = isSourceEnabled('pfaf') || isSourceEnabled('naturadb');
 
   const results: SearchResult[] = [];
-  for (const item of items) {
-    const entity = detailData.entities?.[item.title];
-    if (!entity) continue;
 
-    const taxonClaim = entity.claims?.P225?.[0]?.mainsnak?.datavalue?.value;
-    const labelDe = entity.labels?.de?.value;
-    const labelEn = entity.labels?.en?.value;
-    const descDe = entity.descriptions?.de?.value;
-    const descEn = entity.descriptions?.en?.value;
+  // Wikidata autocomplete search
+  if (wikidataEnabled) {
+    try {
+      const searchUrl = new URL('https://www.wikidata.org/w/api.php');
+      searchUrl.searchParams.set('action', 'query');
+      searchUrl.searchParams.set('list', 'search');
+      searchUrl.searchParams.set('srsearch', `haswbstatement:P225 ${query}`);
+      searchUrl.searchParams.set('srnamespace', '0');
+      searchUrl.searchParams.set('srlimit', '15');
+      searchUrl.searchParams.set('format', 'json');
+      searchUrl.searchParams.set('origin', '*');
 
-    results.push({
-      latinName: taxonClaim || '',
-      commonName: labelDe || labelEn || taxonClaim || '',
-      wikidataId: item.title,
-      description: descDe || descEn || '',
-    });
+      const res = await fetch(searchUrl.toString(), { signal });
+      if (res.ok) {
+        const data = await res.json();
+        const items = data.query?.search;
+        if (items?.length) {
+          const ids = items.map((s: any) => s.title).join('|');
+          const detailUrl = new URL('https://www.wikidata.org/w/api.php');
+          detailUrl.searchParams.set('action', 'wbgetentities');
+          detailUrl.searchParams.set('ids', ids);
+          detailUrl.searchParams.set('props', 'labels|descriptions|claims');
+          detailUrl.searchParams.set('languages', 'de|en|la');
+          detailUrl.searchParams.set('format', 'json');
+          detailUrl.searchParams.set('origin', '*');
+
+          const detailRes = await fetch(detailUrl.toString(), { signal });
+          if (detailRes.ok) {
+            const detailData = await detailRes.json();
+            for (const item of items) {
+              const entity = detailData.entities?.[item.title];
+              if (!entity) continue;
+              const taxonClaim = entity.claims?.P225?.[0]?.mainsnak?.datavalue?.value;
+              const labelDe = entity.labels?.de?.value;
+              const labelEn = entity.labels?.en?.value;
+              const descDe = entity.descriptions?.de?.value;
+              const descEn = entity.descriptions?.en?.value;
+              results.push({
+                latinName: taxonClaim || '',
+                commonName: labelDe || labelEn || taxonClaim || '',
+                wikidataId: item.title,
+                description: descDe || descEn || '',
+              });
+            }
+          }
+        }
+      }
+    } catch (e: any) {
+      if (e.name === 'AbortError') throw e;
+      // Wikidata failed, continue with proxy if available
+    }
+  }
+
+  // Direct proxy lookup if no Wikidata results or Wikidata disabled
+  if (results.length === 0 && proxyEnabled && query.length >= 3) {
+    try {
+      const proxyUrl = `/api/plant-proxy?name=${encodeURIComponent(query)}`;
+      const res = await fetch(proxyUrl, { signal });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.source && (data.commonName || data.latinName)) {
+          results.push({
+            latinName: data.latinName || query,
+            commonName: data.commonName || '',
+            description: `Quelle: ${data.source.toUpperCase()}`,
+          });
+        }
+      }
+    } catch (e: any) {
+      if (e.name === 'AbortError') throw e;
+    }
   }
 
   return results;
@@ -135,7 +164,7 @@ export async function fetchProxyData(latinName: string): Promise<Partial<PlantDa
   const enabledNatura = isSourceEnabled('naturadb');
   if (!enabledPfaf && !enabledNatura) return {};
 
-  const proxyUrl = `/.netlify/functions/plant-proxy?name=${encodeURIComponent(latinName)}`;
+  const proxyUrl = `/api/plant-proxy?name=${encodeURIComponent(latinName)}`;
   try {
     const res = await fetch(proxyUrl);
     if (!res.ok) return {};

@@ -4,8 +4,14 @@
 
 [functions]
   directory = "netlify/functions"
+  node_bundler = "esbuild"
 
 [[headers]]
   for = "/sw.js"
   [headers.values]
     Cache-Control = "no-cache"
+
+[[redirects]]
+  from = "/api/plant-proxy"
+  to = "/.netlify/functions/plant-proxy"
+  status = 200

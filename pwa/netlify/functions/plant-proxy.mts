@@ -322,5 +322,5 @@ export default async (req: Request, _context: Context) => {
 };
 
 export const config = {
-  path: "/.netlify/functions/plant-proxy",
+  path: ["/api/plant-proxy", "/.netlify/functions/plant-proxy"],
 };
