@@ -169,8 +169,7 @@ import Layout from '../layouts/Layout.astro';
 <script>
   import { getAllPlants, savePlant } from '../lib/db';
   import { createEmptyPlant, type PlantData } from '../lib/types';
-  import { renderTemplatePolyCard, renderTemplateStripeCard } from '../lib/svg-template';
-  import { renderPolyCard, renderStripeCard } from '../lib/card-svg';
+  import { renderPolyCardHtml, renderStripeCardHtml } from '../lib/card-html';
 
   const container = document.getElementById('cards-container')!;
   const noPlants = document.getElementById('no-plants')!;
@@ -217,7 +216,7 @@ import Layout from '../layouts/Layout.astro';
   // --- Init & Render ---
   async function init() {
     plants = await getAllPlants();
-    loading.classList.add('hidden');
+    loading.remove();
 
     if (plants.length === 0) {
       noPlants.classList.remove('hidden');
@@ -225,63 +224,69 @@ import Layout from '../layouts/Layout.astro';
     }
 
     container.classList.remove('hidden');
-    await render();
+    render();
   }
 
-  async function render() {
+  function render() {
     const mode = viewMode.value;
-    container.className = mode === 'stripe'
-      ? 'flex flex-col items-stretch gap-4'
+    const isStripe = mode === 'stripe';
+
+    container.className = isStripe
+      ? 'flex flex-col items-stretch gap-2'
       : 'flex flex-wrap justify-center gap-6';
 
-    container.innerHTML = '<div class="flex w-full items-center justify-center py-8"><div class="h-6 w-6 animate-spin rounded-full border-4 border-green-200 border-t-green-700"></div></div>';
-
-    const cards = await Promise.all(plants.map(async (p) => {
-      try {
-        return mode === 'stripe'
-          ? await renderTemplateStripeCard(p)
-          : await renderTemplatePolyCard(p);
-      } catch {
-        return mode === 'stripe' ? renderStripeCard(p) : renderPolyCard(p);
-      }
-    }));
-
-    container.innerHTML = cards.map((svg, i) => `
-      <div class="group relative rounded-xl bg-white p-3 shadow-md ring-1 ring-stone-200 transition hover:shadow-lg hover:ring-green-300" data-index="${i}">
-        <div class="pointer-events-none [&_svg]:max-w-full [&_svg]:h-auto">${svg}</div>
-        <div class="relative z-10 mt-2 flex items-center justify-between">
-          <span class="text-xs text-stone-400">${plants[i].commonName || plants[i].latinName}</span>
-          <div class="flex gap-1.5">
-            <button class="btn-edit-card inline-flex items-center gap-1 rounded-md bg-stone-100 px-2.5 py-1 text-xs font-medium text-stone-600 transition hover:bg-blue-100 hover:text-blue-800">
-              <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/></svg>
-              Bearb.
-            </button>
-            <button class="btn-pdf-single inline-flex items-center gap-1 rounded-md bg-stone-100 px-2.5 py-1 text-xs font-medium text-stone-600 transition hover:bg-green-100 hover:text-green-800">
-              <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-              PDF
-            </button>
+    container.innerHTML = plants.map((p, i) => {
+      const cardHtml = isStripe ? renderStripeCardHtml(p) : renderPolyCardHtml(p);
+      return `
+        <div class="group relative rounded-xl shadow-md ring-1 ring-stone-200 transition hover:shadow-lg hover:ring-green-300 overflow-hidden" data-index="${i}">
+          <div class="pointer-events-none${isStripe ? ' overflow-x-auto' : ''}">${cardHtml}</div>
+          <div class="relative z-10 flex items-center justify-between bg-white/90 px-3 py-1.5">
+            <span class="text-xs text-stone-400">${plants[i].commonName || plants[i].latinName}</span>
+            <div class="flex gap-1.5">
+              <button class="btn-edit-card inline-flex items-center gap-1 rounded-md bg-stone-100 px-2.5 py-1 text-xs font-medium text-stone-600 transition hover:bg-blue-100 hover:text-blue-800">
+                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/></svg>
+                Bearb.
+              </button>
+              <button class="btn-pdf-single inline-flex items-center gap-1 rounded-md bg-stone-100 px-2.5 py-1 text-xs font-medium text-stone-600 transition hover:bg-green-100 hover:text-green-800">
+                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                PDF
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-    `).join('');
+      `;
+    }).join('');
+  }
 
-    // Attach event listeners
-    container.querySelectorAll('.btn-pdf-single').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const idx = parseInt((btn.closest('[data-index]') as HTMLElement).dataset.index!);
+  // --- Event delegation (single listeners, no duplication) ---
+  container.addEventListener('click', async (e) => {
+    const target = e.target as HTMLElement;
+    const pdfBtn = target.closest('.btn-pdf-single') as HTMLButtonElement | null;
+    const editBtn = target.closest('.btn-edit-card') as HTMLButtonElement | null;
+
+    if (pdfBtn) {
+      if (pdfBtn.disabled) return;
+      const idx = parseInt((pdfBtn.closest('[data-index]') as HTMLElement).dataset.index!);
+      pdfBtn.disabled = true;
+      pdfBtn.textContent = '...';
+      try {
         const { exportSingleCardPDF } = await import('../lib/pdf-export');
         await exportSingleCardPDF(plants[idx]);
-      });
-    });
+      } catch (err) {
+        console.error('PDF generation failed:', err);
+        alert(`PDF-Fehler: ${err instanceof Error ? err.message : String(err)}`);
+      } finally {
+        pdfBtn.disabled = false;
+        pdfBtn.innerHTML = '<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg> PDF';
+      }
+    }
 
-    container.querySelectorAll('.btn-edit-card').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const idx = parseInt((btn.closest('[data-index]') as HTMLElement).dataset.index!);
-        fillForm(plants[idx]);
-        dialog.showModal();
-      });
-    });
-  }
+    if (editBtn) {
+      const idx = parseInt((editBtn.closest('[data-index]') as HTMLElement).dataset.index!);
+      fillForm(plants[idx]);
+      dialog.showModal();
+    }
+  });
 
   // --- Dialog handlers ---
   document.getElementById('btn-cancel')!.addEventListener('click', () => dialog.close());
@@ -291,17 +296,24 @@ import Layout from '../layouts/Layout.astro';
     const updated = readForm();
     await savePlant(updated);
     dialog.close();
-    // Refresh data and re-render cards
     plants = await getAllPlants();
-    await render();
+    render();
   });
 
-  viewMode.addEventListener('change', () => render());
+  viewMode.addEventListener('change', render);
 
   document.getElementById('btn-pdf-all')!.addEventListener('click', async () => {
     if (plants.length === 0) return;
-    const { exportCardsPDF } = await import('../lib/pdf-export');
-    await exportCardsPDF(plants);
+    const btn = document.getElementById('btn-pdf-all') as HTMLButtonElement;
+    btn.disabled = true;
+    btn.textContent = 'Erstelle PDF...';
+    try {
+      const { exportCardsPDF } = await import('../lib/pdf-export');
+      await exportCardsPDF(plants);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg> PDF exportieren';
+    }
   });
 
   init();

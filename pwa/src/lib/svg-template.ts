@@ -156,11 +156,16 @@ export async function renderTemplatePolyCard(plant: PlantData): Promise<string> 
   const data = plantToTemplateData(plant);
   applyDataToSvg(doc, data);
 
-  // Update the image
+  // Update the image: set plant image or remove template default
   const imageEl = doc.querySelector('#image1');
-  if (imageEl && plant.imageUrl) {
-    imageEl.setAttribute('href', plant.imageUrl);
-    imageEl.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', plant.imageUrl);
+  if (imageEl) {
+    if (plant.imageUrl) {
+      imageEl.setAttribute('href', plant.imageUrl);
+      imageEl.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', plant.imageUrl);
+    } else {
+      // No image for this plant — remove the template's default image
+      imageEl.parentNode?.removeChild(imageEl);
+    }
   }
 
   const serializer = new XMLSerializer();
