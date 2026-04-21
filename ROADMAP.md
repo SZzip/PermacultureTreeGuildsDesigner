@@ -99,9 +99,10 @@ Da Pflanzendaten aus mehreren Quellen aggregiert werden (Wikidata → PFAF → N
 
 | Problem | Status |
 |---|---|
-| PDF-Streifen in LibreWolf (SMask/pdf.js) | in Arbeit |
-| `svg-template.ts` und `card-svg.ts` — redundant neben Canvas-Renderer | aufräumen |
-| Root-Verzeichnis enthält Build-Artefakte (`index.html`, `sw.js`, `manifest.json`) | bereinigen |
-| Netlify-Proxy hat kein Rate-Limiting | sichern |
-| Netlify-Proxy manchmal deployed nicht erreichbar (keine Suchergebnisse für PFAF/NaturaDB) | diagnostizieren |
-| Service Worker Cache-Version muss manuell erhöht werden | automatisieren (Build-Hash) |
+| PDF-Streifen in LibreWolf (SMask/pdf.js) | ✅ behoben — raw RGB via `flateStream`, kein SMask |
+| `svg-template.ts` und `card-svg.ts` — redundant neben Canvas-Renderer | ✅ gelöscht |
+| Root-Verzeichnis enthält Build-Artefakte (`index.html`, `sw.js`, `manifest.json`) | ✅ bereinigt |
+| PowerShell-Skripte als Legacy markieren, README aktualisieren | ✅ nach `legacy/` verschoben |
+| Netlify-Proxy hat kein Rate-Limiting | offen |
+| Netlify-Proxy manchmal deployed nicht erreichbar (keine Suchergebnisse für PFAF/NaturaDB) | offen |
+| Service Worker Cache-Version muss manuell erhöht werden | offen — Build-Hash automatisieren |
